@@ -104,8 +104,6 @@ func execShell(command string) error {
 		/*
 			This will most likely will not work for all shells,
 			 but supported for bash,zsh,ksh,fish which should cover most cases
-			 if anyone wishes to extend this or have a link to some extensive documentation
-			 around this issue it would be much appreciated
 		*/
 		shellCommandString = "-c"
 	default:
