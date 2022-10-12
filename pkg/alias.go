@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/spf13/afero"
 	"github.com/riywo/loginshell"
+	"github.com/spf13/afero"
 	"github.com/valyala/fasttemplate"
 )
 
-var appFs =  &afero.Afero{
+var appFs = &afero.Afero{
 	Fs: afero.NewOsFs(),
 }
 
@@ -23,16 +23,16 @@ type TopLevelConfig struct {
 }
 
 type Config struct {
-	Name 		string 	`json:"name"`
+	Name        string  `json:"name"`
 	Description string  `json:"description"`
-	Command 	string  `json:"command"`
-	Alias   	[]Alias `json:"alias"`
+	Command     string  `json:"command"`
+	Alias       []Alias `json:"alias"`
 }
 
 type Alias struct {
-	Name      	string `json:"name"`
-	Description string `json:"description"`
-	Variables []string `json:"variables"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Variables   []string `json:"variables"`
 }
 
 func ExitIfErr(err error) {
@@ -44,16 +44,15 @@ func ExitIfErr(err error) {
 
 func AddExampleConfig() {
 	homeAlias := Alias{
-		Name: "home",
+		Name:        "home",
 		Description: "home directory",
-		Variables: []string{"~/"},
+		Variables:   []string{"~/"},
 	}
 	firstConfig := Config{
-		Name: "cd",
-		Command: "cd ${}",
+		Name:        "cd",
+		Command:     "cd ${}",
 		Description: "Change directory",
-		Alias: []Alias{homeAlias},
-
+		Alias:       []Alias{homeAlias},
 	}
 	overlay := TopLevelConfig{
 		Config: []Config{firstConfig},
@@ -72,15 +71,22 @@ func processTemplate(command string, vars, args []string) (exec string, err erro
 	template := fasttemplate.New(command, "${", "}")
 	ii := 0
 	maxLen := len(vars)
-	exec = template.ExecuteFuncString(func(w io.Writer, tag string) (int, error ) {
-		if (ii >= maxLen) {
+	exec, err = template.ExecuteFuncStringWithErr(func(w io.Writer, tag string) (int, error) {
+		if ii >= maxLen {
 			return 0, fmt.Errorf("cannot match template to supplied variables\n, ")
 		}
 		n, err := w.Write([]byte(vars[ii]))
 		ii += 1
 		return n, err
 	})
-	if (len(args) > 0) {
+	if err != nil {
+		return "", err
+	}
+	// Check that template matches arguments
+	if ii != maxLen {
+		return "", fmt.Errorf("supplied %d arguments, but want to interpolate %d argument(s)", maxLen, ii)
+	}
+	if len(args) > 0 {
 		for _, arg := range args {
 			exec += " " + arg
 		}
@@ -88,22 +94,23 @@ func processTemplate(command string, vars, args []string) (exec string, err erro
 	return exec, nil
 }
 
-func execShell(command string) {
+func execShell(command string) error {
 	var shellCommandString string
 	switch runtime.GOOS {
-	case "windows":
+	case "linux":
+	case "darwin":
+	case "freebsd":
+	case "openbsd":
 		/*
-		Not tested, and probably wont. But if someone is interested it's there
-		*/
-		shellCommandString = "/c"
-	default:
-		/* 
-		This will most likely will not work for all shells, 
-		 but supported for bash,zsh,ksh,fish which should cover most cases
-		 if anyone wishes to extend this or have a link to some extensive documentation
-		 around this issue it would be much appreciated 
+			This will most likely will not work for all shells,
+			 but supported for bash,zsh,ksh,fish which should cover most cases
+			 if anyone wishes to extend this or have a link to some extensive documentation
+			 around this issue it would be much appreciated
 		*/
 		shellCommandString = "-c"
+	default:
+		return fmt.Errorf("environment not supported %s", runtime.GOOS)
+
 	}
 	shell, err := loginshell.Shell()
 	ExitIfErr(err)
@@ -111,10 +118,13 @@ func execShell(command string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	_ = cmd.Run()
+	return nil
+
 }
 
 func RunCommand(command string, vars []string, args []string) {
 	exec, err := processTemplate(command, vars, args)
 	ExitIfErr(err)
-	execShell(exec)
+	err = execShell(exec)
+	ExitIfErr(err)
 }

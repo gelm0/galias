@@ -1,5 +1,15 @@
 # galias
 
+## Build instructions
+```
+# Install galias
+make install
+
+# Uninstall galias
+make uninstall
+```
+
+## Instructions
 Built to not have to remember dig through my shell history. I personally use it for commands that I use every day, such as
 - Tunneling to different environments
 - CDing to directories 

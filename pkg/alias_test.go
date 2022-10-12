@@ -1,26 +1,26 @@
 package alias
 
 import (
-	"testing"
-	"os"
-	"path/filepath"
 	"encoding/json"
+	"fmt"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func createExampleConfig() TopLevelConfig {
 	testAlias := Alias{
-		Name: "test-command",
+		Name:        "test-command",
 		Description: "test",
-		Variables: []string{"~/"},
+		Variables:   []string{"~/"},
 	}
 	testConfig := Config{
-		Name: "test-alias",
-		Command: "command ${} ${} ${} ${} ${}",
+		Name:        "test-alias",
+		Command:     "command ${} ${} ${} ${} ${}",
 		Description: "Change directory",
-		Alias: []Alias{testAlias},
-
+		Alias:       []Alias{testAlias},
 	}
 	return TopLevelConfig{
 		Config: []Config{testConfig},
@@ -52,11 +52,33 @@ func TestExampleConfig(t *testing.T) {
 
 }
 func TestProcessCorrectTemplate(t *testing.T) {
+	template := "this is ${} ${}"
+	args := []string{"a", "test"}
+
+	processed, err := processTemplate(template, args, []string{})
+
+	assert.Nil(t, err)
+	assert.Equal(t, processed, fmt.Sprintf("this is %s %s", args[0], args[1]))
+
+	extraVars := []string{"something", "extra"}
+	processed, err = processTemplate(template, args, extraVars)
+
+	assert.Nil(t, err)
+	assert.Equal(t, processed, fmt.Sprintf("this is %s %s %s %s", args[0], args[1], extraVars[0], extraVars[1]))
 
 }
 func TestProcessTemplateIncorrectVariables(t *testing.T) {
+	template := "this is ${}"
 
-}
-func TestProcessTemplateVariablesNoInterpolation(t *testing.T) {
+	args := []string{}
+	empty, err := processTemplate(template, args, []string{})
 
+	assert.Empty(t, empty)
+	assert.NotNil(t, err)
+
+	args = []string{"1", "2"}
+	empty, err = processTemplate(template, args, []string{})
+
+	assert.Empty(t, empty)
+	assert.NotNil(t, err)
 }
